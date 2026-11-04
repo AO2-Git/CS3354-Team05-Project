@@ -87,7 +87,8 @@ public/
   data/events.json Generated event data (future scraper output)
 tests/
   spikes/
-    S-01/          P2 architecture spike and measurements
+    spike1.js      P2 architecture spike experiment
+  OtherTests/      Future unit, integration, and acceptance tests
 docs/p1/           P1 requirements document
 temp/              Working project documents
 ```
