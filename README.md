@@ -85,6 +85,8 @@ src/
   styles.css       Global responsive styles
 public/
   data/events.json Generated event data (future scraper output)
+spikes/
+  S-01/            P2 architecture spike and measurements
 docs/p1/           P1 requirements document
 temp/              Working project documents
 ```
