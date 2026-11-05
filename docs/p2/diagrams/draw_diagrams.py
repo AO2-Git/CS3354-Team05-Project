@@ -80,61 +80,82 @@ def domain_model(path):
 
 
 # ---------------------------------------------------------------- 5.2 sequence diagrams
-def sequence(path, lifelines, rows, control, title_note=None):
-    """rows: (number, sender, receiver, message, return_label or None)."""
+def sequence(path, lifelines, rows, control, breaks_after=()):
+    """rows: (number, sender, receiver, message, return_label or None).
+    Actors are stick figures; the controller has an activation bar that ends after any row in
+    breaks_after and restarts at the next message; every other object gets a short bar from the
+    message it receives until it returns."""
     n = len(lifelines)
     gap = 3.7
     xs = {name: i * gap for i, name in enumerate(lifelines)}
+    actors = {"Student", "Friend"}
     step = 0.85
     total = len(rows) * step + sum(step * 0.6 for r in rows if r[4]) + 1.2
-    fig_h = 1.6 + total * 0.62
-    fig, ax = plt.subplots(figsize=(max(10, n * 2.6), fig_h))
+    fig, ax = plt.subplots(figsize=(max(10, n * 2.6), 1.6 + total * 0.62))
     top_y = 0
     for name, x in xs.items():
-        actor = name in ("Student", "Friend")
-        label = name if not actor else name
-        ax.add_patch(FancyBboxPatch((x - 1.2, top_y - 0.25), 2.4, 0.6,
-                                    boxstyle="round,pad=0.02" if not actor else "square,pad=0.02",
-                                    fc="white" if actor else FILL, ec=INK, lw=1.3))
-        ax.text(x, top_y + 0.05, (":" if not actor else "") + label if not actor else label,
-                ha="center", va="center", fontsize=13, fontweight="bold", color=INK)
-        if actor:
-            ax.text(x, top_y + 0.55, "«actor»", ha="center", fontsize=8.5, color="#4b5563")
-    y = top_y - 0.9
+        if name in actors:
+            ax.add_patch(plt.Circle((x, top_y + 0.62), 0.14, fc="white", ec=INK, lw=1.4))
+            ax.plot([x, x], [top_y + 0.48, top_y + 0.15], color=INK, lw=1.4)
+            ax.plot([x - 0.22, x + 0.22], [top_y + 0.38, top_y + 0.38], color=INK, lw=1.4)
+            ax.plot([x, x - 0.18], [top_y + 0.15, top_y - 0.1], color=INK, lw=1.4)
+            ax.plot([x, x + 0.18], [top_y + 0.15, top_y - 0.1], color=INK, lw=1.4)
+            ax.text(x, top_y - 0.28, name, ha="center", va="center", fontsize=13, fontweight="bold", color=INK)
+        else:
+            ax.add_patch(plt.Rectangle((x - 1.2, top_y - 0.25), 2.4, 0.6, fc=FILL, ec=INK, lw=1.3))
+            ax.text(x, top_y + 0.05, ":" + name, ha="center", va="center", fontsize=13, fontweight="bold", color=INK)
     end_y = -(total) - 0.3
     for x in xs.values():
-        ax.plot([x, x], [top_y - 0.25, end_y], color="#9ca3af", lw=1, ls=(0, (4, 4)), zorder=0)
-    # activation bar on the controller for the whole interaction
+        ax.plot([x, x], [top_y - 0.45, end_y], color="#9ca3af", lw=1, ls=(0, (4, 4)), zorder=0)
+
+    def bar(x, y0, y1):
+        ax.add_patch(plt.Rectangle((x - 0.09, y1), 0.18, y0 - y1, fc="white", ec=INK, lw=1.1, zorder=2))
+
     cx = xs[control]
-    ax.add_patch(plt.Rectangle((cx - 0.09, end_y + 0.25), 0.18, (top_y - 0.6) - (end_y + 0.25),
-                               fc="white", ec=INK, lw=1.1, zorder=2))
+    y = top_y - 0.9
+    seg_start = y + 0.2
+    open_at = {}
     for num, a, b, msg, ret in rows:
+        if seg_start is None:
+            seg_start = y + 0.2
         xa, xb = xs[a], xs[b]
         if a == b:
+            if a != control and a not in open_at:
+                open_at[a] = y + 0.15
             ax.annotate("", xy=(xa + 0.1, y - 0.35), xytext=(xa + 0.1, y),
                         arrowprops=dict(arrowstyle="-|>", color=INK, lw=1.2,
                                         connectionstyle="arc3,rad=-1.6"), zorder=3)
             ax.text(xa + 0.55, y - 0.12, f"{num}  {msg}", fontsize=12.5, va="center", color=INK)
             y -= step * 1.1
             if ret and a != control:
-                ax.annotate("", xy=(cx + 0.09, y), xytext=(xa, y),
+                ax.annotate("", xy=(cx + 0.09, y), xytext=(xa - 0.09, y),
                             arrowprops=dict(arrowstyle="->", color="#6b7280", lw=1.1, ls=(0, (4, 3))), zorder=3)
                 ax.text((xa + cx) / 2, y + 0.12, ret, ha="center", fontsize=11.5, color="#4b5563", style="italic")
+                bar(xa, open_at.pop(a), y - 0.05)
                 y -= step * 0.6
-            continue
-        s = 0.09 if xb > xa else -0.09
-        ax.annotate("", xy=(xb - s, y), xytext=(xa + (s if a == control else 0), y),
-                    arrowprops=dict(arrowstyle="-|>", color=INK, lw=1.3), zorder=3)
-        if xb > xa:
-            ax.text(xa + 0.25, y + 0.13, f"{num}  {msg}", ha="left", fontsize=12.5, color=INK)
         else:
-            ax.text(xa - 0.25, y + 0.13, f"{num}  {msg}", ha="right", fontsize=12.5, color=INK)
-        y -= step
-        if ret:
-            ax.annotate("", xy=(xa + (s if a == control else 0), y), xytext=(xb - s, y),
-                        arrowprops=dict(arrowstyle="->", color="#6b7280", lw=1.1, ls=(0, (4, 3))), zorder=3)
-            ax.text((xa + xb) / 2, y + 0.12, ret, ha="center", fontsize=11.5, color="#4b5563", style="italic")
-            y -= step * 0.6
+            if a == control and b not in actors:
+                open_at.setdefault(b, y + 0.05)
+            s = 0.09 if xb > xa else -0.09
+            ax.annotate("", xy=(xb - s, y), xytext=(xa + s if a == control else xa, y),
+                        arrowprops=dict(arrowstyle="-|>", color=INK, lw=1.3), zorder=3)
+            if xb > xa:
+                ax.text(xa + 0.25, y + 0.13, f"{num}  {msg}", ha="left", fontsize=12.5, color=INK)
+            else:
+                ax.text(xa - 0.25, y + 0.13, f"{num}  {msg}", ha="right", fontsize=12.5, color=INK)
+            y -= step
+            if ret:
+                ax.annotate("", xy=(xa + s, y), xytext=(xb - s, y),
+                            arrowprops=dict(arrowstyle="->", color="#6b7280", lw=1.1, ls=(0, (4, 3))), zorder=3)
+                ax.text((xa + xb) / 2, y + 0.12, ret, ha="center", fontsize=11.5, color="#4b5563", style="italic")
+                if b in open_at:
+                    bar(xb, open_at.pop(b), y - 0.05)
+                y -= step * 0.6
+        if num in breaks_after:
+            bar(cx, seg_start, y + 0.45)
+            seg_start = None
+    if seg_start is not None:
+        bar(cx, seg_start, y + 0.3)
     ax.set_xlim(-1.5, (n - 1) * gap + 1.5)
     ax.set_ylim(end_y - 0.2, top_y + 0.9)
     ax.axis("off")
@@ -154,7 +175,7 @@ UC01 = [
     ("2c", "EventBrowser", "Student", "shows the matching events and the count", None),
     ("3", "Student", "EventBrowser", "reaches the end of the events shown", None),
     ("4a", "EventBrowser", "EventCatalog", "asks for the next 20 matching events", "next events"),
-    ("4b", "EventBrowser", "Student", "adds them, or says “No more events”", None),
+    ("4b", "EventBrowser", "Student", "adds the next 20 matching events", None),
 ]
 
 UC02 = [
@@ -176,7 +197,8 @@ if __name__ == "__main__":
     sequence(os.path.join(here, "sd_uc01.png"),
              ["Student", "EventBrowser", "EventCatalog", "SourceSite"], UC01, "EventBrowser")
     sequence(os.path.join(here, "sd_uc02.png"),
-             ["Student", "Friend", "EventBrowser", "LinkRegistry", "EventCatalog"], UC02, "EventBrowser")
+             ["Student", "Friend", "EventBrowser", "LinkRegistry", "EventCatalog"], UC02, "EventBrowser",
+             breaks_after=("2c",))
     print("ok")
 
 
