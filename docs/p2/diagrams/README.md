@@ -8,6 +8,7 @@ python3 draw_diagrams.py   # needs matplotlib
 
 | File | Figure in the P2 document | Drawn from |
 |---|---|---|
+| `context_diagram.png` | 2.1 Context diagram | boundary paragraph in 2.1 |
 | `use_case_diagram.png` | 3.4 Use case diagram | actor-goal list in 3.4 |
 | `domain_model.png` | 5.1 Domain model | class table in 5.1 |
 | `sd_uc01.png` | 5.2.1 Analysis sequence diagram, UC-01 Find Events by Tag | scenario table in 5.2.1 (b) |

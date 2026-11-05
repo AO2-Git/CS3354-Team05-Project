@@ -217,3 +217,34 @@ def use_case_diagram(path):
 if __name__ == "__main__":
     import os
     use_case_diagram(os.path.join(os.path.dirname(os.path.abspath(__file__)), "use_case_diagram.png"))
+
+
+# ---------------------------------------------------------------- 2.1 context diagram
+def context_diagram(path):
+    fig, ax = plt.subplots(figsize=(10, 4.2))
+    ax.add_patch(plt.Rectangle((3.6, 0.6), 3.4, 2.6, fc=FILL, ec=INK, lw=1.8))
+    ax.text(5.3, 2.75, "Whoosh Events", ha="center", fontsize=13, fontweight="bold", color=INK)
+    ax.text(5.3, 1.75, "event collector\n+\nwebsite", ha="center", va="center", fontsize=11, color=INK)
+    stick(ax, 0.9, 2.5, "Student")
+    stick(ax, 0.9, 0.0, "Friend")
+    for (lbl, y) in (("UTD Calendar", 2.5), ("Nebula club calendar", 0.9)):
+        ax.add_patch(plt.Rectangle((8.2, y - 0.4), 2.4, 0.8, fc="white", ec=INK, lw=1.3))
+        ax.text(9.4, y + 0.08, lbl, ha="center", va="center", fontsize=11, color=INK)
+        ax.text(9.4, y - 0.22, "«external system»", ha="center", va="center", fontsize=8.5, color="#4b5563")
+        ax.annotate("", xy=(7.0, y), xytext=(8.2, y), arrowprops=dict(arrowstyle="-|>", color=INK, lw=1.3))
+        ax.text(7.6, y + 0.15, "event data", ha="center", fontsize=9.5, style="italic", color="#374151")
+    for y, lbl in ((2.6, "browses, filters,\nshares events"), (0.3, "opens a shared link")):
+        ax.annotate("", xy=(3.6, 1.9 if y > 1 else 1.0), xytext=(1.35, y),
+                    arrowprops=dict(arrowstyle="<|-|>", color=INK, lw=1.2))
+        ax.text(2.45, (y + (1.9 if y > 1 else 1.0)) / 2 + 0.28, lbl, ha="center", fontsize=9.5, style="italic", color="#374151")
+    ax.set_xlim(0, 10.8)
+    ax.set_ylim(-1.3, 3.5)
+    ax.set_aspect("equal")
+    ax.axis("off")
+    fig.savefig(path, dpi=170, bbox_inches="tight", pad_inches=0.1)
+    plt.close(fig)
+
+
+if __name__ == "__main__":
+    import os
+    context_diagram(os.path.join(os.path.dirname(os.path.abspath(__file__)), "context_diagram.png"))
