@@ -9,6 +9,13 @@ const sources = [
     parse: parseJsonLdEvents,
   },
   {
+    name: 'UTD Calendar API',
+    url: 'https://calendar.utdallas.edu/api/2/events',
+    parse: parseUtdApiEvents,
+    format: 'json',
+    measurementOnly: true,
+  },
+  {
     name: 'Nebula Labs Club Calendar',
     url: 'https://clubs.utdnebula.com/events?page=1',
     parse: parseNebulaEvents,
@@ -26,8 +33,9 @@ async function fetchAndParse(source) {
         'user-agent': 'Whoosh-Events-S01-Spike/0.1 (CS3354 student project)',
       },
     })
-    const html = await response.text()
-    const events = response.ok ? source.parse(html, source) : []
+    const body = await response.text()
+    const payload = source.format === 'json' ? JSON.parse(body) : body
+    const events = response.ok ? source.parse(payload, source) : []
 
     return {
       source: source.name,
@@ -35,8 +43,9 @@ async function fetchAndParse(source) {
       status: response.status,
       ok: response.ok,
       durationMs: round(performance.now() - startedAt),
-      bytes: Buffer.byteLength(html),
+      bytes: Buffer.byteLength(body),
       eventsFound: events.length,
+      fieldCompleteness: getFieldCompleteness(events),
       events,
       error: response.ok ? null : `HTTP ${response.status}`,
     }
@@ -49,6 +58,7 @@ async function fetchAndParse(source) {
       durationMs: round(performance.now() - startedAt),
       bytes: 0,
       eventsFound: 0,
+      fieldCompleteness: getFieldCompleteness([]),
       events: [],
       error: error instanceof Error ? error.message : String(error),
     }
@@ -73,6 +83,29 @@ function parseJsonLdEvents(html, source) {
   })
 
   return events.filter(Boolean)
+}
+
+function parseUtdApiEvents(payload, source) {
+  if (!Array.isArray(payload?.events)) return []
+
+  return payload.events
+    .map((item) => item?.event)
+    .filter(Boolean)
+    .map((event) => {
+      const instance = event.event_instances?.[0]?.event_instance
+      const startDate = instance?.all_day
+        ? instance.start?.slice(0, 10)
+        : instance?.start
+      return normalizeEvent({
+        id: event.id,
+        name: event.title,
+        startDate,
+        location: event.location_name || event.location || event.address,
+        organizer: event.departments?.[0]?.name,
+        url: event.localist_url || event.url,
+      }, source, event.id)
+    })
+    .filter(Boolean)
 }
 
 function parseNebulaEvents(html, source) {
@@ -137,8 +170,13 @@ function parseNebulaSchedule(schedule) {
   )
   if (!match) return { startDate: null }
 
-  const parsed = new Date(`${match[1]}, ${new Date().getUTCFullYear()}`)
+  const now = new Date()
+  const currentYear = now.getUTCFullYear()
+  const parsed = new Date(`${match[1]}, ${currentYear}`)
   if (Number.isNaN(parsed.getTime())) return { startDate: null }
+  if (parsed < new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))) {
+    parsed.setUTCFullYear(currentYear + 1)
+  }
 
   const [hour, minute] = match[2].match(/\d+/g).map(Number)
   const isPm = match[2].endsWith('PM')
@@ -176,12 +214,32 @@ function round(value) {
   return Math.round(value)
 }
 
+function getFieldCompleteness(events) {
+  const fields = ['title', 'date', 'time', 'location']
+  return Object.fromEntries(fields.map((field) => [
+    field,
+    {
+      present: events.filter((event) => event[field]).length,
+      missing: events.filter((event) => !event[field]).length,
+    },
+  ]))
+}
+
 const startedAt = performance.now()
 const results = await Promise.all(sources.map(fetchAndParse))
 const previousEvents = await readPreviousEvents()
-const refreshedEvents = results.flatMap((result) => result.events)
+const refreshedResults = results.filter((result) => {
+  const source = sources.find((candidate) => candidate.name === result.source)
+  return !source?.measurementOnly
+})
+const refreshedEvents = refreshedResults
+  .filter((result) => result.ok && result.eventsFound > 0)
+  .flatMap((result) => result.events)
 const retainedEvents = results
-  .filter((result) => !result.ok)
+  .filter((result) => {
+    const source = sources.find((candidate) => candidate.name === result.source)
+    return !source?.measurementOnly && (!result.ok || result.eventsFound === 0)
+  })
   .flatMap((result) => previousEvents.filter((event) => event.source === result.source))
 const allEvents = [...refreshedEvents, ...retainedEvents]
 const uniqueEvents = [...new Map(allEvents.map((event) => [event.id, event])).values()]
